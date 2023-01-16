@@ -1,0 +1,7 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+.notice, .notice.notice-warning {
+    margin: 5px 15px 15px 0;
+}

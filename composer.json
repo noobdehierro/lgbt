@@ -1,0 +1,19 @@
+{
+    "name": "leancommerce/figou-integrations",
+    "description": "Consumo de API's de Qvantel para uso de figou.mx",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Roberto Guzman",
+            "email": "roberto.guzman@leancommerce.mx",
+            "homepage": "https://www.leancommerce.mx/"
+        }
+    ],
+    "version": "1.0.0",
+    "minimum-stability": "stable",
+    "require": {
+        "stripe/stripe-php": "^7.78",
+        "conekta/conekta-php": "^4.3"
+    }
+}
