@@ -381,6 +381,7 @@ class Figou_Integrations_Public
 
         if ($active_sim == 1 && $paymentMethod == 'oxxo-cash') {
             self::sim_activate();
+            self::save_active_clients($_REQUEST);
         }
 
         if ($productId && $paymentMethod) {
@@ -2064,19 +2065,9 @@ JSONTEMPALTE;
     public function qvantel_webhook($data)
     {
 
-
-
-        $global_options = get_option($this->plugin_name . '-general-settings');
-
-        $sandbox = $global_options['sandbox'];
-
-        if ($sandbox == '1') {
-            $webhook_endpoint = 'https://public-webhook-sayco-preprod.qvantel.systems/api/onboarding/customer';
-            $webhook_key = 'Basic YWRtaW46YWRtaW4=';
-        } else {
-            $webhook_endpoint = 'https://public-webhook-figou-prod.qvantel.solutions/api/onboarding/customer';
-            $webhook_key = 'Basic YWRtaW46YWRtaW4=';
-        }
+        $qvantel_options = get_option($this->plugin_name . '-qvantel-settings');
+        $webhook_endpoint = $qvantel_options['qvantel_webhook_url'];
+        $webhook_key = $qvantel_options['qvantel_webhook_key'];
 
         $headers = [
             'x-channel: mApp',
@@ -2085,17 +2076,44 @@ JSONTEMPALTE;
         ];
         $json = self::getJsonWebhookTemplate($data);
 
+        return [$webhook_endpoint, $webhook_key];
+
         $res = $this->curl_request($webhook_endpoint, $headers, 'POST', $json);
+
+        $res = self::save_active_clients($data);
+
+        return $res;
+    }
+
+    public function save_active_clients($data)
+    {
+        global $wpdb;
+
+        $res = $wpdb->insert(
+            $wpdb->prefix . 'active_clients',
+            array(
+                'action' => $data['action'],
+                'email' => $data['email'],
+                'firstname' => $data['firstname'],
+                'lastname' => $data['lastname'],
+                'plan' => $data['plan'],
+                'price' => $data['price'],
+                'productId' => $data['productId'],
+                'iccid' => $data['iccid'],
+            )
+        );
 
 
         return $res;
     }
+
     public function getJsonWebhookTemplate($data)
     {
         $jsonTemplate = <<<JSONTEMPALTE
+        
         {
             "basket": {
-                "salesPersonId": "vendedor",
+                "salesPersonId": "credit card",
                 "paymentMethod": {
                     "paymentMethodId": "openpay",
                     "paymentMethodType": "openpay-external-payment",
@@ -2108,16 +2126,16 @@ JSONTEMPALTE;
                         "key": "CH_ServiceActivationType"
                     }],
                     "productId": ":productId",
-                    "CH_ICC": "89521400617:iccid",
+                    "CH_ICC": "895214006201:iccid",
                     "useICC": true
                 }]
             },
             "customer": {
                 "individual": {
                     "nationality": "MX",
-                    "gender": "other",
-                    "familyName": ":firstname",
-                    "givenName": ":lastname"
+                    "gender": "male",
+                    "familyName": ":lastname",
+                    "givenName": ":firstname"
                 },
                 "contactMedia": [{
                     "role": "primary",
@@ -2131,7 +2149,7 @@ JSONTEMPALTE;
                             "numberType": "fixed-line"
                         },
                         "emailAddress": {
-                            "email": ":email"
+                            "email": "raj@qvantel.com"
                         },
                         "postalAddress": {
                             "city": ":colonia",
@@ -2186,3 +2204,157 @@ JSONTEMPALTE;
         return $json;
     }
 }
+
+
+////// funciono en postman
+
+// {
+// 	"basket": {
+// 		"salesPersonId": "vendedor",
+// 		"paymentMethod": {
+// 			"paymentMethodId": "openpay",
+// 			"paymentMethodType": "openpay-external-payment",
+// 			"params": []
+// 		},
+// 		"basketItems": [{
+// 			"quantity": 1,
+// 			"characteristics": [{
+// 				"value": "Activation",
+//                 "key": "CH_ServiceActivationType"
+// 			}],
+// 			"productId": "PO_SAY-RM-ST_125_125Mi_1500_500M_50_75SMS_2000T_3D_NR",
+// 			"CH_ICC": "8952140061784224948",
+// 			"useICC": true
+// 		}]
+// 	},
+// 	"customer": {
+// 		"individual": {
+// 			"nationality": "MX",
+// 			"gender": "male",
+// 			"familyName": "cardenas guzman",
+// 			"givenName": "homero perez"
+// 		},
+// 		"contactMedia": [{
+// 			"role": "primary",
+// 			"validFor": {
+// 				"startDatetime": "2018-04-12T10:07:51.276Z",
+// 				"endDatetime": "2032-04-12T10:07:51.276Z"
+// 			},
+// 			"medium": {
+// 				"telephoneNumber": {
+// 					"number": "string",
+// 					"numberType": "fixed-line"
+// 				},
+// 				"emailAddress": {
+// 					"email": "raj@qvantel.com"
+// 				},
+// 				"postalAddress": {
+// 					"city": "Roma",
+// 					"coAddress": "Insurgentes y Zacatecas",
+// 					"apartment": "13B",
+// 					"country": "MX",
+// 					"building": "54",
+// 					"postalCode": "06700",
+// 					"street": "Yucatan",
+// 					"stateOrProvince": "Ciudad de México",
+// 					"county": "Cuauhtemoc"
+// 				}
+// 			}
+// 		}],
+// 		"identifications": [{
+// 			"expirationDate": "2024-11-25",
+// 			"identificationId": "12345678901",
+// 			"issuingAuthority": {
+// 				"city": "Roma",
+// 				"name": "Rajinish",
+// 				"country": "MX",
+// 				"county": "Cuauhtemoc",
+// 				"stateOrProvince": "Ciudad de México"
+// 			},
+// 			"issuingDate": "2018-04-12T10:07:51.276Z",
+// 			"identificationType": "personal-identity-code",
+// 			"validFor": {
+// 				"startDatetime": "2018-04-12T10:07:51.276Z",
+// 				"endDatetime": "2032-04-12T10:07:51.276Z"
+// 			}
+// 		}]
+// 	}
+
+// }
+
+
+//funciono en casita xd
+
+// {
+//     "basket": {
+//         "salesPersonId": "vendedor",
+//         "paymentMethod": {
+//             "paymentMethodId": "openpay",
+//             "paymentMethodType": "openpay-external-payment",
+//             "params": []
+//         },
+//         "basketItems": [{
+//             "quantity": 1,
+//             "characteristics": [{
+//                 "value": "Activation",
+//                 "key": "CH_ServiceActivationType"
+//             }],
+//             "productId": ":productId",
+//             "CH_ICC": "89521400617:iccid",
+//             "useICC": true
+//         }]
+//     },
+//     "customer": {
+//         "individual": {
+//             "nationality": "MX",
+//             "gender": "other",
+//             "familyName": ":firstname",
+//             "givenName": ":lastname"
+//         },
+//         "contactMedia": [{
+//             "role": "primary",
+//             "validFor": {
+//                 "startDatetime": "2018-04-12T10:07:51.276Z",
+//                 "endDatetime": "2032-04-12T10:07:51.276Z"
+//             },
+//             "medium": {
+//                 "telephoneNumber": {
+//                     "number": "string",
+//                     "numberType": "fixed-line"
+//                 },
+//                 "emailAddress": {
+//                     "email": ":email"
+//                 },
+//                 "postalAddress": {
+//                     "city": ":colonia",
+//                     "coAddress": ":referencias",
+//                     "apartment": ":exterior",
+//                     "country": "MX",
+//                     "building": "0",
+//                     "postalCode": ":cp",
+//                     "street": ":dir",
+//                     "stateOrProvince": ":estado",
+//                     "county": ":municipio"
+//                 }
+//             }
+//         }],
+//         "identifications": [{
+//             "expirationDate": "2024-11-25",
+//             "identificationId": "12345678901",
+//             "issuingAuthority": {
+//                 "city": ":colonia",
+//                 "name": ":firstname",
+//                 "country": "MX",
+//                 "county": ":municipio",
+//                 "stateOrProvince": ":estado"
+//             },
+//             "issuingDate": "2018-04-12T10:07:51.276Z",
+//             "identificationType": "personal-identity-code",
+//             "validFor": {
+//                 "startDatetime": "2018-04-12T10:07:51.276Z",
+//                 "endDatetime": "2032-04-12T10:07:51.276Z"
+//             }
+//         }]
+//     }
+
+// }
