@@ -1490,6 +1490,9 @@
 
             if (result.error == "") {
               $(".success-reference").text(result.orderId);
+              if (result[0].error) {
+                $(".activate-error").show();
+              }
               successStep();
             } else {
               var $form = $("#card-form");

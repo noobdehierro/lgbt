@@ -293,7 +293,8 @@
                                                 <div class="figou-col-50">
 
                                                     <label for="msisdn_to_port">Número a portar</label>
-                                                    <input type="tel" class="phone" name="msisdn_to_port" id="msisdn_to_port">
+                                                    <input type="tel" class="phone" name="msisdn_to_port"
+                                                        id="msisdn_to_port">
                                                 </div>
                                                 <div class="figou-col-50">
 
@@ -305,7 +306,7 @@
                                             <h5 class="title-center">Tu portabilidad quedará resuelta en menos de 24
                                                 horas hábiles, pasado ese tiempo podrás ingresar su SIM LGBT y contarás
                                                 con todos los beneficios, para cualquier duda, contacta vía whatsApp al
-                                                equipo de Atención a Clientes al número: </br>33 4088 0170.</h5> 
+                                                equipo de Atención a Clientes al número: </br>33 4088 0170.</h5>
                                         </div>
 
 
@@ -441,9 +442,12 @@
                                                                 data-method="oxxo-cash">
                                                                 <p>
                                                                     Pagar en tiendas de conveniencia<br />
-                                                                    <span class="light">*Se aplica una comisión al pagar en el establecimiento</span>
+                                                                    <span class="light">*Se aplica una comisión al pagar
+                                                                        en el establecimiento</span>
                                                                 </p>
-                                                                <img src="/wp-content/uploads/figou/stores_pay.png" class="payment-selector img" style="max-width: 60%;">
+                                                                <img src="/wp-content/uploads/figou/stores_pay.png"
+                                                                    class="payment-selector img"
+                                                                    style="max-width: 60%;">
                                                             </button>
                                                         </div>
                                                     </div>
@@ -799,6 +803,13 @@
                             <p>GRACIAS por tu preferencia.</p>
                             <p>En breve recibiras un correo electronico con la información de la compra.</p>
                             <p>Referencia: <span class="success-reference"></span></p>
+                        </div>
+                        <div hidden class="activate-error">
+                            <h2>¡Error!</h2>
+                            <p>Hola, usuario, hubo un error al activar su tarjeta SIM.</p>
+                            <p>En breve, nuestro equipo de atención a clientes se contactará contigo</p>
+                            <p>ATT: lgbt+mobile</p>
+
                         </div>
                     </div>
                 </div>

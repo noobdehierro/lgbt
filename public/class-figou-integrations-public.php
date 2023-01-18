@@ -103,6 +103,9 @@ class Figou_Integrations_Public
 
     const ADMIN_ACTIVATE_SIM_WITH_PORTABILITY = 16;
 
+    const ADMIN_ERROR_ACTIVATE_SIM = 17;
+
+
     /**
      * The ID of this plugin.
      *
@@ -981,8 +984,8 @@ class Figou_Integrations_Public
             $active_sim = $_REQUEST['sim_active'] ?? '';
 
             if ($active_sim == 1) {
-                self::sim_activate();
-                self::qvantel_webhook($_REQUEST);
+                $webres = self::qvantel_webhook($_REQUEST, $order->id ?? '');
+                array_push($result, $webres);
             }
         } else {
             $result = [
@@ -1239,7 +1242,8 @@ class Figou_Integrations_Public
         $httpcode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         if ($httpcode = 0 || $httpcode != 200) {
             return array(
-                'error' => $httpcode
+                'error' => $httpcode,
+                'response' => json_decode($response, true),
             );
         }
         $message = json_decode($response, true);
@@ -1729,6 +1733,30 @@ JSONTEMPALTE;
                 ];
                 $content = str_replace(array_keys($search), array_values($search), $content);
                 break;
+            case 17:
+                $subject = 'error de activación de SIM - LGBTMASMOBILE';
+                $content = file_get_contents($this->plugin_public_partials_path . 'email/admin_error_activate.html');
+                $search = [
+                    ':nombre' => $data['nombre'],
+                    ':email' => $data['email'],
+                    ':direccion' => $data['direccion'],
+                    ':colonia' => $data['colonia'],
+                    ':ciudad' => $data['ciudad'],
+                    ':municipio' => $data['municipio'],
+                    ':cp' => $data['cp'],
+                    ':estado' => $data['estado'],
+                    ':pais' => $data['pais'],
+                    ':telefonoContacto' => $data['telefonoContacto'],
+                    ':nacimiento' => $data['nacimiento'],
+                    ':msisdn_to_port' => $data['msisdn_to_port'],
+                    ':iccid' => $data['iccid'],
+                    ':nip' => $data['nip'],
+                    ':referencia' => $data['orderReference'],
+
+
+                ];
+                $content = str_replace(array_keys($search), array_values($search), $content);
+                break;
         }
         $body = $this->getEmailBody($content, $white);
         $headers = array('Content-Type: text/html; charset=UTF-8', 'From: Notificaciones LGBTMASMOBILE <no-replay@lgbtmasmobile.com>');
@@ -2062,7 +2090,7 @@ JSONTEMPALTE;
             }
         }
     }
-    public function qvantel_webhook($data)
+    public function qvantel_webhook($data, $orderid = null)
     {
 
         $qvantel_options = get_option($this->plugin_name . '-qvantel-settings');
@@ -2076,16 +2104,22 @@ JSONTEMPALTE;
         ];
         $json = self::getJsonWebhookTemplate($data);
 
-        return [$webhook_endpoint, $webhook_key];
 
         $res = $this->curl_request($webhook_endpoint, $headers, 'POST', $json);
 
-        $res = self::save_active_clients($data);
+        self::save_active_clients($data, $orderid);
+
+        if ($res['error']) {
+            // $error = $res['response']['message'];
+            self::sim_error_activate($orderid);
+        } else {
+            self::sim_activate();
+        }
 
         return $res;
     }
 
-    public function save_active_clients($data)
+    public function save_active_clients($data, $orderid = null)
     {
         global $wpdb;
 
@@ -2100,6 +2134,8 @@ JSONTEMPALTE;
                 'price' => $data['price'],
                 'productId' => $data['productId'],
                 'iccid' => $data['iccid'],
+                'msisdn' => $data['msisdn'],
+                'orderId' => $orderid,
             )
         );
 
@@ -2203,7 +2239,37 @@ JSONTEMPALTE;
         $json = json_encode(json_decode(str_replace(array_keys($search), array_values($search), $jsonTemplate), true));
         return $json;
     }
+    public function sim_error_activate($orderid = null)
+    {
+        if (!wp_verify_nonce($_REQUEST['nonce'], 'figou_save_nonce')) {
+            die;
+        }
+        $global_options = get_option($this->plugin_name . '-general-settings');
+
+
+        $typeAdmin = self::ADMIN_ERROR_ACTIVATE_SIM;
+        $toAdmin = $global_options['notifications_email'];
+        $dataAdmin = [
+            'nombre' => $_REQUEST['nombre'] ?? '',
+            'email' => $_REQUEST['email'] ?? '',
+            'direccion' => $_REQUEST['direccion'] ?? '',
+            'telefonoContacto' => $_REQUEST['contacto'] ?? '',
+            'nacimiento' => $_REQUEST['nacimiento'] ?? '',
+            'iccid' => $_REQUEST['iccid'] ?? '',
+            'colonia' => $_REQUEST['colonia'] ?? '',
+            'municipio' => $_REQUEST['municipio'] ?? '',
+            'cp' => $_REQUEST['cp'] ?? '',
+            'estado' => $_REQUEST['estado'] ?? '',
+            'orderReference' => $orderid
+        ];
+
+        if ($toAdmin != '') {
+            $this->sendNotification($toAdmin, $typeAdmin, $dataAdmin);
+        }
+    }
 }
+
+
 
 
 ////// funciono en postman
