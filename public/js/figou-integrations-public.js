@@ -1424,7 +1424,7 @@
           totalSim = $(".conekta-credit-card .summary .total-sim").text(),
           descuento = "$0 MXN",
           totalTotal = $(".conekta-credit-card .summary .total-total").text(),
-          msisdn = $("#msisdn").val() ?? "",
+          msisdn = $("#msisdn").val() ?? $("#msisdn_to_port").val() ?? "",
           nip = $("#nip").val() ?? "",
           iccid = $("#iccid").val() ?? "",
           firstname = $("#nombre").val(),

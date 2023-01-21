@@ -382,10 +382,9 @@ class Figou_Integrations_Public
         $recurrente = $_REQUEST['recurrente'] ?? false;
         $active_sim = $_REQUEST['active_sim'] ?? '';
 
-        if ($active_sim == 1 && $paymentMethod == 'oxxo-cash') {
-            self::sim_activate();
-            self::save_active_clients($_REQUEST);
-        }
+        // if ($active_sim == 1 && $paymentMethod == 'oxxo-cash') {
+        //     self::sim_activate();
+        // }
 
         if ($productId && $paymentMethod) {
             $qvantel_options = get_option($this->plugin_name . '-qvantel-settings');
@@ -549,6 +548,7 @@ class Figou_Integrations_Public
                         'noIdentificacion' => $tipo_identificacion ?? '',
                         'telefonoContacto' => $telefono,
                         'msisdn' => $_REQUEST['msisdn'] ?? '',
+
                     ];
 
                     if ($toAdmin != '') {
@@ -691,6 +691,9 @@ class Figou_Integrations_Public
                             'barcode' => '',
                             'refcode' => $oxxoReferenceNumber,
                         ];
+
+                        self::save_active_clients($_REQUEST, $oxxoOrderId);
+
 
                         $typeAdmin = self::ADMIN_OXXO_CONFIRMATION;
                         $toAdmin = $global_options['notifications_email'];
@@ -2126,21 +2129,23 @@ JSONTEMPALTE;
         $res = $wpdb->insert(
             $wpdb->prefix . 'active_clients',
             array(
-                'action' => $data['action'],
-                'email' => $data['email'],
-                'firstname' => $data['firstname'],
-                'lastname' => $data['lastname'],
-                'plan' => $data['plan'],
-                'price' => $data['price'],
-                'productId' => $data['productId'],
-                'iccid' => $data['iccid'],
-                'msisdn' => $data['msisdn'],
-                'orderId' => $orderid,
+                'action' => $data['paymentMethod']  ?? $data['action'] ?? '',
+                'email' => $data['email']  ?? '',
+                'firstname' => $data['firstname']  ?? $data['nombre'] ?? '',
+                'lastname' => $data['lastname']  ?? $data['apellidos'] ?? '',
+                'plan' => $data['plan']  ?? $data['product_name'] ?? '',
+                'price' => $data['price']  ?? $data['product_price'] ?? '',
+                'productId' => $data['productId']  ?? $data['product_id'] ?? '',
+                'iccid' => $data['iccid']  ?? '',
+                'msisdn' => $data['msisdn']  ?? $data['msisdn_to_port'] ?? '',
+                'orderId' => $orderid ?? '',
+                'nip' => $data['nip']  ?? '',
+
             )
         );
 
 
-        return $res;
+        return $data;
     }
 
     public function getJsonWebhookTemplate($data)
@@ -2222,18 +2227,18 @@ JSONTEMPALTE;
         }
 JSONTEMPALTE;
         $search = [
-            ':productId' => $data['productId'],
-            ':iccid' => $data['iccid'],
-            ':firstname' => $data['firstname'],
-            ':lastname' => $data['lastname'],
-            ':email' => $data['email'],
-            ':colonia' => $data['colonia'],
-            ':referencias' => $data['referencias'],
-            ':exterior' => $data['exterior'],
-            ':cp' => $data['cp'],
-            ':dir' => $data['dir'],
-            ':estado' => $data['estado'],
-            ':municipio' => $data['municipio'],
+            ':productId' => $data['productId'] ?? '',
+            ':iccid' => $data['iccid'] ?? '',
+            ':firstname' => $data['firstname'] ?? '',
+            ':lastname' => $data['lastname'] ?? '',
+            ':email' => $data['email'] ?? '',
+            ':colonia' => $data['colonia'] ?? '',
+            ':referencias' => $data['referencias'] ?? '',
+            ':exterior' => $data['exterior'] ?? '',
+            ':cp' => $data['cp'] ?? '',
+            ':dir' => $data['dir'] ?? '',
+            ':estado' => $data['estado'] ?? '',
+            ':municipio' => $data['municipio'] ?? '',
 
         ];
         $json = json_encode(json_decode(str_replace(array_keys($search), array_values($search), $jsonTemplate), true));
@@ -2267,160 +2272,165 @@ JSONTEMPALTE;
             $this->sendNotification($toAdmin, $typeAdmin, $dataAdmin);
         }
     }
+
+    public function custom_api_route()
+    {
+
+        // register_rest_route('/example/v1', '/first-example', array(
+        //     'methods' => 'GET',
+        //     'callback' => array($this, 'Boilerplate_custom_api_endpoint_first_example')
+        // ));
+
+        register_rest_route('/conekta/v1', '/active', array(
+            'methods' => 'POST',
+            'callback' => array($this, 'activate_sim')
+        ));
+    }
+
+    function activate_sim()
+    {
+
+        $body = @file_get_contents('php://input');
+        $data = json_decode($body);
+        http_response_code(200); // Return 200 OK 
+
+
+        if (!$data->data->object->payment_method->service_name) {
+
+            $res = self::qvantel_webhook_active($data->data->object->order_id);
+
+            return $res;
+        }
+    }
+
+    public function qvantel_webhook_active($orderid)
+    {
+
+        $qvantel_options = get_option($this->plugin_name . '-qvantel-settings');
+        $webhook_endpoint = $qvantel_options['qvantel_webhook_url'];
+        $webhook_key = $qvantel_options['qvantel_webhook_key'];
+
+        $headers = [
+            'x-channel: mApp',
+            'Content-Type: application/json',
+            'Authorization: ' . $webhook_key
+        ];
+
+        $jsonTemplate = self::getJsonWebhookConektaTemplate($orderid);
+
+        $res = $this->curl_request($webhook_endpoint, $headers, 'POST', $jsonTemplate);
+
+
+        // if ($res['error']) {
+        //     // $error = $res['response']['message'];
+        //     self::sim_error_activate($orderid);
+        // } else {
+        //     self::sim_activate();
+        // }
+
+        return $res;
+    }
+
+    public function getJsonWebhookConektaTemplate($orderid)
+    {
+        global $wpdb;
+        $order = $wpdb->get_results("SELECT orderId FROM wp_active_clients WHERE orderId = '" . $orderid . "'");
+
+
+
+        $resultados = $wpdb->get_results("SELECT email,firstname,lastname,productId,iccid FROM wp_active_clients WHERE orderId = '" . $order[0]->orderId . "'");
+
+
+        $jsonTemplate = <<<JSONTEMPALTE
+        {
+            "basket": {
+                "salesPersonId": "credit card",
+                "paymentMethod": {
+                    "paymentMethodId": "openpay",
+                    "paymentMethodType": "openpay-external-payment",
+                    "params": []
+                },
+                "basketItems": [{
+                    "quantity": 1,
+                    "characteristics": [{
+                        "value": "Activation",
+                        "key": "CH_ServiceActivationType"
+                    }],
+                    "productId": "PO_SAY-RM-ST_125_125Mi_1500_500M_50_75SMS_2000T_3D_NR",
+                    "CH_ICC": "895214006201:iccid",
+                    "useICC": true
+                }]
+            },
+            "customer": {
+                "individual": {
+                    "nationality": "MX",
+                    "gender": "male",
+                    "familyName": ":lastname",
+                    "givenName": ":firstname"
+                },
+                "contactMedia": [{
+                    "role": "primary",
+                    "validFor": {
+                        "startDatetime": "2018-04-12T10:07:51.276Z",
+                        "endDatetime": "2032-04-12T10:07:51.276Z"
+                    },
+                    "medium": {
+                        "telephoneNumber": {
+                            "number": "string",
+                            "numberType": "fixed-line"
+                        },
+                        "emailAddress": {
+                            "email": "raj@qvantel.com"
+                        },
+                        "postalAddress": {
+                            "city": ":colonia",
+                            "coAddress": ":referencias",
+                            "apartment": ":exterior",
+                            "country": "MX",
+                            "building": "0",
+                            "postalCode": ":cp",
+                            "street": ":dir",
+                            "stateOrProvince": ":estado",
+                            "county": ":municipio"
+                        }
+                    }
+                }],
+                "identifications": [{
+                    "expirationDate": "2024-11-25",
+                    "identificationId": "12345678901",
+                    "issuingAuthority": {
+                        "city": ":colonia",
+                        "name": ":firstname",
+                        "country": "MX",
+                        "county": ":municipio",
+                        "stateOrProvince": ":estado"
+                    },
+                    "issuingDate": "2018-04-12T10:07:51.276Z",
+                    "identificationType": "personal-identity-code",
+                    "validFor": {
+                        "startDatetime": "2018-04-12T10:07:51.276Z",
+                        "endDatetime": "2032-04-12T10:07:51.276Z"
+                    }
+                }]
+            }
+        
+        }
+JSONTEMPALTE;
+        $email = $resultados[0]->email;
+        $firstname = $resultados[0]->firstname;
+        $lastname = $resultados[0]->lastname;
+        $productId = $resultados[0]->productId;
+        $iccid = $resultados[0]->iccid;
+
+        $search = [
+            ':productId' => $productId ?? '',
+            ':iccid' => $iccid ?? '',
+            ':firstname' => $firstname  ?? '',
+            ':lastname' => $lastname ?? '',
+            ':email' => $email ?? '',
+
+        ];
+        $json = json_encode(json_decode(str_replace(array_keys($search), array_values($search), $jsonTemplate), true));
+        return $json;
+    }
 }
-
-
-
-
-////// funciono en postman
-
-// {
-// 	"basket": {
-// 		"salesPersonId": "vendedor",
-// 		"paymentMethod": {
-// 			"paymentMethodId": "openpay",
-// 			"paymentMethodType": "openpay-external-payment",
-// 			"params": []
-// 		},
-// 		"basketItems": [{
-// 			"quantity": 1,
-// 			"characteristics": [{
-// 				"value": "Activation",
-//                 "key": "CH_ServiceActivationType"
-// 			}],
-// 			"productId": "PO_SAY-RM-ST_125_125Mi_1500_500M_50_75SMS_2000T_3D_NR",
-// 			"CH_ICC": "8952140061784224948",
-// 			"useICC": true
-// 		}]
-// 	},
-// 	"customer": {
-// 		"individual": {
-// 			"nationality": "MX",
-// 			"gender": "male",
-// 			"familyName": "cardenas guzman",
-// 			"givenName": "homero perez"
-// 		},
-// 		"contactMedia": [{
-// 			"role": "primary",
-// 			"validFor": {
-// 				"startDatetime": "2018-04-12T10:07:51.276Z",
-// 				"endDatetime": "2032-04-12T10:07:51.276Z"
-// 			},
-// 			"medium": {
-// 				"telephoneNumber": {
-// 					"number": "string",
-// 					"numberType": "fixed-line"
-// 				},
-// 				"emailAddress": {
-// 					"email": "raj@qvantel.com"
-// 				},
-// 				"postalAddress": {
-// 					"city": "Roma",
-// 					"coAddress": "Insurgentes y Zacatecas",
-// 					"apartment": "13B",
-// 					"country": "MX",
-// 					"building": "54",
-// 					"postalCode": "06700",
-// 					"street": "Yucatan",
-// 					"stateOrProvince": "Ciudad de México",
-// 					"county": "Cuauhtemoc"
-// 				}
-// 			}
-// 		}],
-// 		"identifications": [{
-// 			"expirationDate": "2024-11-25",
-// 			"identificationId": "12345678901",
-// 			"issuingAuthority": {
-// 				"city": "Roma",
-// 				"name": "Rajinish",
-// 				"country": "MX",
-// 				"county": "Cuauhtemoc",
-// 				"stateOrProvince": "Ciudad de México"
-// 			},
-// 			"issuingDate": "2018-04-12T10:07:51.276Z",
-// 			"identificationType": "personal-identity-code",
-// 			"validFor": {
-// 				"startDatetime": "2018-04-12T10:07:51.276Z",
-// 				"endDatetime": "2032-04-12T10:07:51.276Z"
-// 			}
-// 		}]
-// 	}
-
-// }
-
-
-//funciono en casita xd
-
-// {
-//     "basket": {
-//         "salesPersonId": "vendedor",
-//         "paymentMethod": {
-//             "paymentMethodId": "openpay",
-//             "paymentMethodType": "openpay-external-payment",
-//             "params": []
-//         },
-//         "basketItems": [{
-//             "quantity": 1,
-//             "characteristics": [{
-//                 "value": "Activation",
-//                 "key": "CH_ServiceActivationType"
-//             }],
-//             "productId": ":productId",
-//             "CH_ICC": "89521400617:iccid",
-//             "useICC": true
-//         }]
-//     },
-//     "customer": {
-//         "individual": {
-//             "nationality": "MX",
-//             "gender": "other",
-//             "familyName": ":firstname",
-//             "givenName": ":lastname"
-//         },
-//         "contactMedia": [{
-//             "role": "primary",
-//             "validFor": {
-//                 "startDatetime": "2018-04-12T10:07:51.276Z",
-//                 "endDatetime": "2032-04-12T10:07:51.276Z"
-//             },
-//             "medium": {
-//                 "telephoneNumber": {
-//                     "number": "string",
-//                     "numberType": "fixed-line"
-//                 },
-//                 "emailAddress": {
-//                     "email": ":email"
-//                 },
-//                 "postalAddress": {
-//                     "city": ":colonia",
-//                     "coAddress": ":referencias",
-//                     "apartment": ":exterior",
-//                     "country": "MX",
-//                     "building": "0",
-//                     "postalCode": ":cp",
-//                     "street": ":dir",
-//                     "stateOrProvince": ":estado",
-//                     "county": ":municipio"
-//                 }
-//             }
-//         }],
-//         "identifications": [{
-//             "expirationDate": "2024-11-25",
-//             "identificationId": "12345678901",
-//             "issuingAuthority": {
-//                 "city": ":colonia",
-//                 "name": ":firstname",
-//                 "country": "MX",
-//                 "county": ":municipio",
-//                 "stateOrProvince": ":estado"
-//             },
-//             "issuingDate": "2018-04-12T10:07:51.276Z",
-//             "identificationType": "personal-identity-code",
-//             "validFor": {
-//                 "startDatetime": "2018-04-12T10:07:51.276Z",
-//                 "endDatetime": "2032-04-12T10:07:51.276Z"
-//             }
-//         }]
-//     }
-
-// }

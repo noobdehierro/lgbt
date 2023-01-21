@@ -16,7 +16,7 @@
  * Plugin Name:       Figou Integrations
  * Plugin URI:        http://www.figou.mx
  * Description:       Figou External Integrations
- * Version:           2.1.15
+ * Version:           2.1.16
  * Author:            LeanCommerce
  * Author URI:        https://www.leancommerce.mx
  * License:           GPL-2.0+
@@ -35,7 +35,7 @@ if (!defined('WPINC')) {
  * Start at version 1.0.0 and use SemVer - https://semver.org
  * Rename this for your plugin and update it as you release new versions.
  */
-define('FIGOU_INTEGRATIONS_VERSION', '2.1.15');
+define('FIGOU_INTEGRATIONS_VERSION', '2.1.16');
 
 /**
  * The code that runs during plugin activation.

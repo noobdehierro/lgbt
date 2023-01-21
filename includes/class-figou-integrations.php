@@ -80,6 +80,7 @@ class Figou_Integrations
 		$this->set_locale();
 		$this->define_admin_hooks();
 		$this->define_public_hooks();
+		$this->create_endpoint();
 	}
 
 	/**
@@ -144,9 +145,17 @@ class Figou_Integrations
 	private function set_locale()
 	{
 
+
+
+
 		$plugin_i18n = new Figou_Integrations_i18n();
 
 		$this->loader->add_action('plugins_loaded', $plugin_i18n, 'load_plugin_textdomain');
+	}
+
+	private function create_endpoint()
+	{
+		# code...
 	}
 
 	/**
@@ -165,6 +174,13 @@ class Figou_Integrations
 		$this->loader->add_action('admin_enqueue_scripts', $plugin_admin, 'enqueue_scripts');
 		$this->loader->add_action('admin_menu', $plugin_admin, 'figou_integrations_menu');
 		$this->loader->add_action('admin_init', $plugin_admin, 'figou_register_settings');
+		//Uso del Hook
+		// add_action('rest_api_init', function () {
+		// 	register_rest_route('conekta/links', '/activate', array(
+		// 		'methods' => 'POST',
+		// 		'callback' => 'activate_sim',
+		// 	));
+		// });
 	}
 
 	/**
@@ -226,8 +242,33 @@ class Figou_Integrations
 		$this->loader->add_action('wp_ajax_conektaOrder', $plugin_public, 'conektaOrder');
 		$this->loader->add_action('wp_ajax_nopriv_conektaOrder', $plugin_public, 'conektaOrder');
 
-		$this->loader->add_action('wp_ajax_sim_activate', $plugin_public, 'sim_activate');
-		$this->loader->add_action('wp_ajax_nopriv_sim_activate', $plugin_public, 'sim_activate');
+		// Construct Custom Endpoint
+		$this->loader->add_action('rest_api_init', $plugin_public, 'custom_api_route');
+
+
+
+		//Uso del Hook
+		// add_action('rest_api_init', function () {
+		// 	register_rest_route('conekta/links', '/activate', array(
+		// 		'methods' => 'POST',
+		// 		'callback' => 'wp_ajax_nopriv_activate_sim',
+		// 	));
+		// });
+
+
+		//Función Callback
+		// function activate_sim($request_data)
+		// {
+
+		// 	$body = @file_get_contents('php://input');
+		// 	$data = json_decode($body);
+		// 	http_response_code(200); // Return 200 OK 
+
+
+		// 	if (!$data->data->object->payment_method->service_name) {
+		// 		return 'pago con oxxo';
+		// 	}
+		// }
 	}
 
 	/**
